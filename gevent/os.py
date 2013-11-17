@@ -4,13 +4,8 @@ On Posix platforms this uses non-blocking IO, on Windows a threadpool
 is used.
 """
 
-from __future__ import absolute_import
-
 import os
-import sys
 from gevent.hub import get_hub, reinit
-from gevent.socket import EAGAIN
-import errno
 
 try:
     import fcntl
@@ -24,7 +19,7 @@ _read = os.read
 _write = os.write
 
 
-ignored_errors = [EAGAIN, errno.EINTR]
+ignored_errors = (BlockingIOError, InterruptedError)
 
 
 if fcntl:
@@ -48,10 +43,8 @@ if fcntl:
         while True:
             try:
                 return _read(fd, n)
-            except OSError, e:
-                if e.errno not in ignored_errors:
-                    raise
-                sys.exc_clear()
+            except ignored_errors:
+                pass
             if hub is None:
                 hub = get_hub()
                 event = hub.loop.io(fd, 1)
@@ -67,10 +60,8 @@ if fcntl:
         while True:
             try:
                 return _write(fd, buf)
-            except OSError, e:
-                if e.errno not in ignored_errors:
-                    raise
-                sys.exc_clear()
+            except ignored_errors:
+                pass
             if hub is None:
                 hub = get_hub()
                 event = hub.loop.io(fd, 2)

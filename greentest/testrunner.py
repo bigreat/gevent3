@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import gevent
 gevent.get_hub('select')  # this is just to make sure we don't pass any fds to children
-from gevent import monkey; monkey.patch_all()
+#TODO from gevent import monkey; monkey.patch_all()
 import sys
 import os
 import glob
@@ -83,7 +83,7 @@ def run_many(tests, expected=None, failfast=False):
 
 
 def discover(tests=None, ignore=None):
-    if isinstance(ignore, basestring):
+    if isinstance(ignore, str):
         ignore = load_list_from_file(ignore)
 
     ignore = set(ignore or [])
@@ -159,8 +159,8 @@ def main():
         tests = discover(args, options.ignore)
     if options.discover:
         for cmd, options in tests:
-            print util.getname(cmd, env=options.get('env'), setenv=options.get('setenv'))
-        print '%s tests found.' % len(tests)
+            print(util.getname(cmd, env=options.get('env'), setenv=options.get('setenv')))
+        print('%s tests found.' % len(tests))
     else:
         run_many(tests, expected=options.expected, failfast=options.failfast)
 

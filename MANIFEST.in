@@ -2,8 +2,6 @@ recursive-include greentest *
 recursive-include examples *
 recursive-include gevent *
 recursive-include doc *
-recursive-include libev *
-recursive-include c-ares *
 recursive-include util *
 include LICENSE
 include README.rst
@@ -11,5 +9,4 @@ include TODO
 include changelog.rst
 include MANIFEST.in
 include AUTHORS
-include Makefile.ext
 include known_failures.txt

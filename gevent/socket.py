@@ -31,7 +31,6 @@ For convenience, exceptions (like :class:`error <socket.error>` and :class:`time
 as well as the constants from :mod:`socket` module are imported into this module.
 """
 
-from __future__ import absolute_import
 
 # standard functions and classes that this module re-implements in a gevent-aware way:
 __implements__ = ['create_connection',
@@ -81,6 +80,7 @@ __imports__ = ['error',
                'errorTab']
 
 
+import os
 import sys
 import time
 from gevent.hub import get_hub, string_types, integer_types
@@ -114,7 +114,7 @@ except ImportError:
 import _socket
 _realsocket = _socket.socket
 import socket as __socket__
-_fileobject = __socket__._fileobject
+SocketIO = __socket__.SocketIO
 
 for name in __imports__[:]:
     try:
@@ -370,13 +370,15 @@ class socket(object):
         Note, that the new socket does not inherit the timeout."""
         return socket(_sock=self._sock)
 
-    def makefile(self, mode='r', bufsize=-1):
+    def makefile(self, mode="r", buffering=None, *,
+                 encoding=None, errors=None, newline=None):
         # Two things to look out for:
         # 1) Closing the original socket object should not close the
         #    socket (hence creating a new instance)
         # 2) The resulting fileobject must keep the timeout in order
         #    to be compatible with the stdlib's socket.makefile.
-        return _fileobject(type(self)(_sock=self), mode, bufsize)
+        # TODO
+        return SocketIO(self, mode)
 
     def recv(self, *args):
         sock = self._sock  # keeping the reference so that fd is not closed during waiting
@@ -524,7 +526,7 @@ class socket(object):
 
     _s = ("def %s(self, *args): return self._sock.%s(*args)\n\n"
           "%s.__doc__ = _realsocket.%s.__doc__\n")
-    for _m in set(__socket__._socketmethods) - set(locals()):
+    for _m in set(os._get_exports_list(__socket__.socket)) - set(locals()):
         exec (_s % (_m, _m, _m, _m))
     del _m, _s
 

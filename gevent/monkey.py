@@ -1,6 +1,5 @@
 # Copyright (c) 2009-2012 Denis Bilenko. See LICENSE for details.
 """Make the standard library cooperative."""
-from __future__ import absolute_import
 import sys
 from sys import version_info
 
@@ -35,7 +34,7 @@ def _get_original(name, items):
 
 
 def get_original(name, item):
-    if isinstance(item, basestring):
+    if isinstance(item, str):
         return _get_original(name, [item])[0]
     else:
         return _get_original(name, item)
@@ -71,7 +70,7 @@ def patch_module(name, items=None):
 
 
 def _patch_sys_std(name):
-    from gevent.fileobject import FileObjectThread
+    from gevent.io import FileObjectThread
     orig = getattr(sys, name)
     if not isinstance(orig, FileObjectThread):
         patch_item(sys, name, FileObjectThread(orig))

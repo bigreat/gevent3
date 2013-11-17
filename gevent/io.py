@@ -24,17 +24,9 @@ if fcntl is None:
 
 else:
 
-    from gevent.socket import _fileobject, _get_memory
+    from gevent.socket import SocketIO, _get_memory
     cancel_wait_ex = IOError(EBADF, 'File descriptor was closed in another greenlet')
     from gevent.os import make_nonblocking
-
-    try:
-        from gevent._util import SocketAdapter__del__, noop
-    except ImportError:
-        SocketAdapter__del__ = None
-        noop = None
-
-    from types import UnboundMethodType
 
     class NA(object):
 
@@ -72,7 +64,8 @@ else:
                 return '<%s at 0x%x (%r, %r)>' % args
 
         def makefile(self, *args, **kwargs):
-            return _fileobject(self, *args, **kwargs)
+            #TODO
+            return SocketIO(self, *args, **kwargs)
 
         def fileno(self):
             result = self._fileno
@@ -138,17 +131,14 @@ else:
             data = data.replace("\r", "\n")
             return data
 
-        if not SocketAdapter__del__:
+        def __del__(self, close=os.close):
+            fileno = self._fileno
+            if fileno is not None:
+                close(fileno)
 
-            def __del__(self, close=os.close):
-                fileno = self._fileno
-                if fileno is not None:
-                    close(fileno)
 
-    if SocketAdapter__del__:
-        SocketAdapter.__del__ = UnboundMethodType(SocketAdapter__del__, None, SocketAdapter)
-
-    class FileObjectPosix(_fileobject):
+    #TODO
+    class FileObjectPosix(SocketIO):
 
         def __init__(self, fobj, mode='rb', bufsize=-1, close=True):
             if isinstance(fobj, (int, long)):
@@ -159,7 +149,7 @@ else:
             sock = SocketAdapter(fileno, mode, close=close)
             self._fobj = fobj
             self._closed = False
-            _fileobject.__init__(self, sock, mode=mode, bufsize=bufsize, close=close)
+            SocketIO.__init__(self, sock, mode=mode, bufsize=bufsize, close=close)
 
         def __repr__(self):
             if self._sock is None:
@@ -192,14 +182,10 @@ else:
                 raise FileObjectClosed
             return getattr(self._fobj, item)
 
-        if not noop:
+        def __del__(self):
+            # disable _fileobject's __del__
+            pass
 
-            def __del__(self):
-                # disable _fileobject's __del__
-                pass
-
-    if noop:
-        FileObjectPosix.__del__ = UnboundMethodType(FileObjectPosix, None, noop)
 
 
 class FileObjectThread(object):
@@ -260,12 +246,12 @@ class FileObjectThread(object):
 
     for method in ['read', 'readinto', 'readline', 'readlines', 'write', 'writelines', 'xreadlines']:
 
-        exec '''def %s(self, *args, **kwargs):
+        exec('''def %s(self, *args, **kwargs):
     fobj = self._fobj
     if fobj is None:
         raise FileObjectClosed
     return self._apply(fobj.%s, args, kwargs)
-''' % (method, method)
+''' % (method, method))
 
     def __iter__(self):
         return self

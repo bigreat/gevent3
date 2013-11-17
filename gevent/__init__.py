@@ -6,10 +6,9 @@ to provide a high-level synchronous API on top of libev event loop.
 See http://www.gevent.org/ for the documentation.
 """
 
-from __future__ import absolute_import
 
-version_info = (1, 0, 0, 'dev', None)
-__version__ = '1.0dev'
+version_info = (0, 1, 0, 'dev', None)
+__version__ = '0.1dev'
 
 
 __all__ = ['get_hub',
