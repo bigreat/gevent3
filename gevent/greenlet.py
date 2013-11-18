@@ -364,6 +364,7 @@ class Greenlet(greenlet):
         self.link(callback, SpawnedLink=SpawnedLink)
 
     def _notify_links(self):
+        self._notifier = None
         while self._links:
             link = self._links.popleft()
             try:

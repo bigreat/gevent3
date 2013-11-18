@@ -182,6 +182,7 @@ def run(command, **kwargs):
         kill(popen)
     assert not err
     if out:
+        out = out.decode()
         out = out.strip()
         if out:
             out = '  ' + out.replace('\n', '\n  ')

@@ -198,13 +198,19 @@ class StreamWriter:
     def get_extra_info(self, name, default=None):
         return self._transport.get_extra_info(name, default)
 
+
+class GreenStreamReader(StreamReader):
     def close(self):
         self._transport.close()
 
+    def readline(self):
+        return get_hub().wait(super().readline())
 
-class StreamReader(StreamReader):
-    def close(self):
-        self._transport.close()
+    def read(self, n=-1):
+        return get_hub().wait(super().read(n))
+
+    def readexactly(self, n):
+        return get_hub().wait(super().readexactly(n))
 
 
 class Popen(SubprocessProtocol):
@@ -215,9 +221,20 @@ class Popen(SubprocessProtocol):
         """Create new Popen instance."""
         assert not universal_newlines, "universal_newlines must be False"
         hub = get_hub()
+        self.pid = None
+        self.returncode = None
+        self.universal_newlines = universal_newlines
+        self.result = AsyncResult()
+        self.stdin = None
+        self.stdout = None
+        self.stderr = None
+
         self._transport = hub.wait(hub.loop._make_subprocess_transport(
             self, args, shell, stdin, stdout, stderr, bufsize, **kwargs))
 
+    def connection_made(self, transport):
+        self._transport = transport
+        self.pid = self._transport.get_pid()
         stdin_transport = self._transport.get_pipe_transport(0)
         if stdin_transport is None:
             self.stdin = None
@@ -227,18 +244,14 @@ class Popen(SubprocessProtocol):
         if stdout_transport is None:
             self.stdout = None
         else:
-            self.stdout = StreamReader()
+            self.stdout = GreenStreamReader()
             self.stdout.set_transport(stdout_transport)
         stderr_transport = self._transport.get_pipe_transport(2)
         if stderr_transport is None:
             self.stderr = None
         else:
-            self.stderr = StreamReader()
+            self.stderr = GreenStreamReader()
             self.stderr.set_transport(stderr_transport)
-        self.pid = self._transport.get_pid()
-        self.returncode = None
-        self.universal_newlines = universal_newlines
-        self.result = AsyncResult()
 
     def pipe_data_received(self, fd, data):
         if fd == 1 and self.stdout is not None:
@@ -260,6 +273,7 @@ class Popen(SubprocessProtocol):
 
     def process_exited(self):
         self.returncode = self._transport.get_returncode()
+        self.result.set(self.returncode)
 
     def __repr__(self):
         return '<%s at 0x%x pid=%r returncode=%r>' % (self.__class__.__name__, id(self), self.pid, self.returncode)
@@ -314,7 +328,9 @@ class Popen(SubprocessProtocol):
         self._transport.terminate()
 
     def kill(self):
-        self._transport.kill()
+        #noinspection PyProtectedMember
+        if self._transport._proc is not None:
+            self._transport.kill()
 
     if mswindows:
         #

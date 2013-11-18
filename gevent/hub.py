@@ -273,14 +273,14 @@ class Hub(greenlet):
             # switch back to this greenlet as well
             cb = None
             try:
-                cb = self.loop.run_callback(current.switch)
+                cb = self.loop.call_soon(current.switch)
             except:
                 traceback.print_exc()
             try:
                 self.parent.throw(type, value)
             finally:
                 if cb is not None:
-                    cb.stop()
+                    cb.cancel()
 
     def print_exception(self, context, type, value, tb):
         traceback.print_exception(type, value, tb)
