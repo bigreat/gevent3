@@ -137,6 +137,7 @@ class Timeout(BaseException):
         """If the timeout is pending, cancel it. Otherwise, do nothing."""
         if self.timer is not None:
             self.timer.cancel()
+            self.timer = None
 
     def __repr__(self):
         try:

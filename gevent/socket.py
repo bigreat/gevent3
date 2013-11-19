@@ -159,7 +159,7 @@ def wait_read(fileno, timeout=None, timeout_exc=timeout('timed out')):
 
     If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
     """
-    io = get_hub().loop.io(fileno, 1)
+    io = get_hub().io(fileno, 1)
     return wait(io, timeout, timeout_exc)
 
 
@@ -171,7 +171,7 @@ def wait_write(fileno, timeout=None, timeout_exc=timeout('timed out'), event=Non
 
     If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
     """
-    io = get_hub().loop.io(fileno, 2)
+    io = get_hub().io(fileno, 2)
     return wait(io, timeout, timeout_exc)
 
 
@@ -183,7 +183,7 @@ def wait_readwrite(fileno, timeout=None, timeout_exc=timeout('timed out'), event
 
     If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
     """
-    io = get_hub().loop.io(fileno, 3)
+    io = get_hub().io(fileno, 3)
     return wait(io, timeout, timeout_exc)
 
 
@@ -238,7 +238,7 @@ class socket(object):
         self._sock.setblocking(0)
         fileno = self._sock.fileno()
         self.hub = get_hub()
-        io = self.hub.loop.io
+        io = self.hub.io
         self._read_event = io(fileno, 1)
         self._write_event = io(fileno, 2)
 
@@ -273,11 +273,10 @@ class socket(object):
         return result
 
     def _get_ref(self):
-        return self._read_event.ref or self._write_event.ref
+        raise NotImplementedError('ref is not implemented')
 
     def _set_ref(self, value):
-        self._read_event.ref = value
-        self._write_event.ref = value
+        raise NotImplementedError('ref is not implemented')
 
     ref = property(_get_ref, _set_ref)
 

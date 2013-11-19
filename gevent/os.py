@@ -47,7 +47,7 @@ if fcntl:
                 pass
             if hub is None:
                 hub = get_hub()
-                event = hub.loop.io(fd, 1)
+                event = hub.io(fd, 1)
             hub.wait(event)
 
     def nb_write(fd, buf):
@@ -64,7 +64,7 @@ if fcntl:
                 pass
             if hub is None:
                 hub = get_hub()
-                event = hub.loop.io(fd, 2)
+                event = hub.io(fd, 2)
             hub.wait(event)
 
 

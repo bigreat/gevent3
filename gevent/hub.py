@@ -23,6 +23,8 @@ __all__ = ['getcurrent',
 
 string_types = str,
 integer_types = int,
+EV_READ = 1
+EV_WRITE = 2
 
 
 def spawn_raw(function, *args, **kwargs):
@@ -248,7 +250,7 @@ class Hub(greenlet):
             info = 'destroyed'
         else:
             try:
-                info = self.loop._format()
+                info = repr(self.loop)
             except Exception as ex:
                 info = str(ex) or repr(ex) or 'error'
         result = '<%s at 0x%x %s' % (self.__class__.__name__, id(self), info)
@@ -303,7 +305,7 @@ class Hub(greenlet):
     def switch_out(self):
         raise AssertionError('Impossible to call blocking function in the event loop callback')
 
-    def wait(self, coro_or_future):
+    def wait_async(self, coro_or_future):
         waiter = Waiter()
         future = asyncio.async(coro_or_future, loop=self.loop)
 
@@ -317,6 +319,18 @@ class Hub(greenlet):
 
         return waiter.get()
 
+    def io(self, fd, flag):
+        return IOWatcher(fd, flag)
+
+    def wait(self, watcher):
+        waiter = Waiter()
+        unique = object()
+        watcher.start(waiter.switch, unique)
+        try:
+            result = waiter.get()
+            assert result is unique, 'Invalid switch into %s: %r (expected %r)' % (getcurrent(), result, unique)
+        finally:
+            watcher.stop()
 
     def cancel_wait(self, watcher, error):
         if watcher.callback is not None:
@@ -383,10 +397,8 @@ class Hub(greenlet):
         if self._threadpool is not None:
             self._threadpool.kill()
             del self._threadpool
-        if destroy_loop is None:
-            destroy_loop = not self.loop.default
         if destroy_loop:
-            self.loop.destroy()
+            self.loop.close()
         self.loop = None
         if getattr(loop, 'hub', None) is self:
             del loop.hub
@@ -553,6 +565,31 @@ class Waiter(object):
 
     # can also have a debugging version, that wraps the value in a tuple (self, value) in switch()
     # and unwraps it in wait() thus checking that switch() was indeed called
+
+
+class IOWatcher:
+    def __init__(self, fd, flag):
+        self.hub = get_hub()
+        self.fd = fd
+        self.flag = flag
+        self.callback = None
+        self.active = False
+
+    def start(self, callback, *args):
+        self.callback = callback
+        self.active = True
+        if self.flag & EV_READ:
+            self.hub.loop.add_reader(self.fd, callback, *args)
+        if self.flag & EV_WRITE:
+            self.hub.loop.add_writer(self.fd, callback, *args)
+
+    def stop(self):
+        self.callback = None
+        self.active = False
+        if self.flag & EV_READ:
+            self.hub.loop.remove_reader(self.fd)
+        if self.flag & EV_WRITE:
+            self.hub.loop.remove_writer(self.fd)
 
 
 def iwait(objects, timeout=None):

@@ -204,13 +204,63 @@ class GreenStreamReader(StreamReader):
         self._transport.close()
 
     def readline(self):
-        return get_hub().wait(super().readline())
+        return get_hub().wait_async(super().readline())
 
     def read(self, n=-1):
-        return get_hub().wait(super().read(n))
+        return get_hub().wait_async(super().read(n))
 
     def readexactly(self, n):
-        return get_hub().wait(super().readexactly(n))
+        return get_hub().wait_aync(super().readexactly(n))
+
+
+class _DelegateProtocol(SubprocessProtocol):
+    def __init__(self, popen):
+        self._popen = popen
+        self._transport = None
+
+    def connection_made(self, transport):
+        self._transport = transport
+        self._popen._transport = transport
+        self._popen.pid = self._transport.get_pid()
+        stdin_transport = self._transport.get_pipe_transport(0)
+        if stdin_transport is None:
+            self._popen.stdin = None
+        else:
+            self._popen.stdin = StreamWriter(stdin_transport)
+        stdout_transport = self._transport.get_pipe_transport(1)
+        if stdout_transport is None:
+            self._popen.stdout = None
+        else:
+            self._popen.stdout = GreenStreamReader()
+            self._popen.stdout.set_transport(stdout_transport)
+        stderr_transport = self._transport.get_pipe_transport(2)
+        if stderr_transport is None:
+            self._popen.stderr = None
+        else:
+            self._popen.stderr = GreenStreamReader()
+            self._popen.stderr.set_transport(stderr_transport)
+
+    def pipe_data_received(self, fd, data):
+        if fd == 1 and self._popen.stdout is not None:
+            self._popen.stdout.feed_data(data)
+        elif fd == 2 and self._popen.stderr is not None:
+            self._popen.stderr.feed_data(data)
+
+    def pipe_connection_lost(self, fd, exc):
+        if exc is None:
+            if fd == 1 and self._popen.stdout is not None:
+                self._popen.stdout.feed_eof()
+            elif fd == 2 and self._popen.stderr is not None:
+                self._popen.stderr.feed_eof()
+        else:
+            if fd == 1 and self._popen.stdout is not None:
+                self._popen.stdout.set_exception(exc)
+            elif fd == 2 and self._popen.stderr is not None:
+                self._popen.stderr.set_exception(exc)
+
+    def process_exited(self):
+        self._popen.returncode = self._transport.get_returncode()
+        self._popen.result.set(self._popen.returncode)
 
 
 class Popen(SubprocessProtocol):
@@ -228,52 +278,18 @@ class Popen(SubprocessProtocol):
         self.stdin = None
         self.stdout = None
         self.stderr = None
+        self._transport = None
 
-        self._transport = hub.wait(hub.loop._make_subprocess_transport(
-            self, args, shell, stdin, stdout, stderr, bufsize, **kwargs))
-
-    def connection_made(self, transport):
-        self._transport = transport
-        self.pid = self._transport.get_pid()
-        stdin_transport = self._transport.get_pipe_transport(0)
-        if stdin_transport is None:
-            self.stdin = None
+        if shell:
+            hub.wait_async(hub.loop.subprocess_shell(
+                lambda: _DelegateProtocol(self), *args,
+                stdin=stdin, stdout=stdout, stderr=stderr,
+                bufsize=bufsize, **kwargs))
         else:
-            self.stdin = StreamWriter(stdin_transport)
-        stdout_transport = self._transport.get_pipe_transport(1)
-        if stdout_transport is None:
-            self.stdout = None
-        else:
-            self.stdout = GreenStreamReader()
-            self.stdout.set_transport(stdout_transport)
-        stderr_transport = self._transport.get_pipe_transport(2)
-        if stderr_transport is None:
-            self.stderr = None
-        else:
-            self.stderr = GreenStreamReader()
-            self.stderr.set_transport(stderr_transport)
-
-    def pipe_data_received(self, fd, data):
-        if fd == 1 and self.stdout is not None:
-            self.stdout.feed_data(data)
-        elif fd == 2 and self.stderr is not None:
-            self.stderr.feed_data(data)
-
-    def pipe_connection_lost(self, fd, exc):
-        if exc is None:
-            if fd == 1 and self.stdout is not None:
-                self.stdout.feed_eof()
-            elif fd == 2 and self.stderr is not None:
-                self.stderr.feed_eof()
-        else:
-            if fd == 1 and self.stdout is not None:
-                self.stdout.set_exception(exc)
-            elif fd == 2 and self.stderr is not None:
-                self.stderr.set_exception(exc)
-
-    def process_exited(self):
-        self.returncode = self._transport.get_returncode()
-        self.result.set(self.returncode)
+            hub.wait_async(hub.loop.subprocess_exec(
+                lambda: _DelegateProtocol(self), *args,
+                stdin=stdin, stdout=stdout, stderr=stderr,
+                bufsize=bufsize, **kwargs))
 
     def __repr__(self):
         return '<%s at 0x%x pid=%r returncode=%r>' % (self.__class__.__name__, id(self), self.pid, self.returncode)

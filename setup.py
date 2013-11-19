@@ -23,7 +23,7 @@ def read(name, *args):
 setup(
     name='gevent3',
     version=__version__,
-    description='A Gevent-like wrapper on top of asyncio for Python 3',
+    description='A Gevent-compatible wrapper of asyncio for Python 3',
     long_description=read('README.rst'),
     author='Fantix King',
     author_email='fantix.king@gmail.com',

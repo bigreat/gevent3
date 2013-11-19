@@ -52,7 +52,7 @@ else:
             make_nonblocking(fileno)
             self._eat_newline = False
             self.hub = get_hub()
-            io = self.hub.loop.io
+            io = self.hub.io
             self._read_event = io(fileno, 1)
             self._write_event = io(fileno, 2)
 

@@ -62,6 +62,7 @@ class BaseServer(object):
             self.set_spawn(spawn)
             self.set_handle(handle)
             self.delay = self.min_delay
+            self.hub = get_hub()
             self.loop = get_hub().loop
             if self.max_accept < 1:
                 raise ValueError('max_accept must be positive int: %r' % (self.max_accept, ))
@@ -86,7 +87,7 @@ class BaseServer(object):
         elif hasattr(spawn, 'spawn'):
             self.pool = spawn
             self._spawn = spawn.spawn
-        elif isinstance(spawn, (int, long)):
+        elif isinstance(spawn, int):
             from gevent.pool import Pool
             self.pool = Pool(spawn)
             self._spawn = self.pool.spawn
@@ -113,7 +114,7 @@ class BaseServer(object):
     def start_accepting(self):
         if self._watcher is None:
             # just stop watcher without creating a new one?
-            self._watcher = self.loop.io(self.socket.fileno(), 1)
+            self._watcher = self.hub.io(self.socket.fileno(), 1)
             self._watcher.start(self._do_read)
 
     def stop_accepting(self):

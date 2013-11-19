@@ -48,7 +48,7 @@ class SocketConsole(Greenlet):
     def __init__(self, locals, conn, banner=None):
         Greenlet.__init__(self)
         self.locals = locals
-        self.desc = _fileobject(conn)
+        self.desc = _SocketIO(conn)
         self.banner = banner
 
     def finalize(self):
@@ -92,7 +92,7 @@ class BackdoorServer(StreamServer):
         SocketConsole.spawn(self.locals, conn, banner=self.banner)
 
 
-class _fileobject(socket._fileobject):
+class _SocketIO(socket.SocketIO):
 
     def write(self, data):
         self._sock.sendall(data)
@@ -104,7 +104,7 @@ class _fileobject(socket._fileobject):
         pass
 
     def readline(self, *a):
-        return socket._fileobject.readline(self, *a).replace("\r\n", "\n")
+        return socket.SocketIO.readline(self, *a).replace("\r\n", "\n")
 
 
 if __name__ == '__main__':

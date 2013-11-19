@@ -5,7 +5,6 @@ test_ares_timeout.py  # explicitly uses ares resolver
 # uses socket test__backdoor.py
 test_close_backend_fd.py
 test__core_callback.py
-test__core_watcher.py
 test__destroy.py
 # uses socket test__doctests.py
 test__environ.py
